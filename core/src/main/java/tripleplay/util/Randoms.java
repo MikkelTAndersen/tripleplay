@@ -221,9 +221,9 @@ public class Randoms
             }
             if (coll instanceof List) {
                 // extra-special optimized path for Lists
-                List<? extends T> list = (List<? extends T>)coll;
+                List<Object> list = (List<Object>)coll;
                 int idx = _r.nextInt(size);
-                return remove ? list.remove(idx) : list.get(idx);
+                return (T) (remove ? list.remove(idx) : list.get(idx));
             }
             // for other Collections, we must iterate
             Iterator<? extends T> it = coll.iterator();
