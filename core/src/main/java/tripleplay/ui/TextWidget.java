@@ -54,6 +54,9 @@ public abstract class TextWidget<T extends TextWidget<T>> extends Widget<T>
                 } else {
                     icon.addCallback(new Callback<Icon>() {
                         public void onSuccess (Icon resource) {
+                            // clear out the rendered icon in case we got laid out before the
+                            // async load finished
+                            _renderedIcon = null;
                             clearLayoutData();
                             invalidate();
                         }
@@ -71,6 +74,7 @@ public abstract class TextWidget<T extends TextWidget<T>> extends Widget<T>
             _ilayer.destroy();
             _ilayer = null;
         }
+        _renderedIcon = null;
     }
 
     @Override protected LayoutData createLayoutData (float hintX, float hintY) {
@@ -178,13 +182,20 @@ public abstract class TextWidget<T extends TextWidget<T>> extends Widget<T>
                     usedHeight = iheight + iconGap;
                     break;
                 }
-                if (_ilayer != null) _ilayer.destroy();
-                layer.addAt(_ilayer = icon.render(), ix, iy);
+                if (_renderedIcon == icon) {
+                    // This is the same icon, just reposition its layer
+                    _ilayer.setTranslation(ix,  iy);
+                } else {
+                    // Otherwise, destroy and recreate
+                    if (_ilayer != null) _ilayer.destroy();
+                    layer.addAt(_ilayer = icon.render(), ix, iy);
+                }
 
             } else if (icon == null && _ilayer != null) {
                 _ilayer.destroy();
                 _ilayer = null;
             }
+            _renderedIcon = icon;
 
             if (text == null) _tglyph.destroy();
             else {
@@ -233,7 +244,8 @@ public abstract class TextWidget<T extends TextWidget<T>> extends Widget<T>
         // this is broken out so that subclasses can extend this action
         protected void updateTextGlyph (float tx, float ty, float availWidth, float availHeight) {
             float twidth = FloatMath.ceil(textWidth()), theight = FloatMath.ceil(textHeight());
-            if (twidth <= 0 || theight <= 0 || availWidth <= 0 || availHeight <= 0) return;
+            float awidth = FloatMath.ceil(availWidth), aheight = FloatMath.ceil(availHeight);
+            if (twidth <= 0 || theight <= 0 || awidth <= 0 || aheight <= 0) return;
 
             // if autoShrink is enabled, and our text is too wide, re-lay it out with successively
             // smaller fonts until it fits
@@ -246,14 +258,14 @@ public abstract class TextWidget<T extends TextWidget<T>> extends Widget<T>
             }
 
             // create a canvas no larger than the text, constrained to the available size
-            float tgwidth = Math.min(availWidth, twidth), tgheight = Math.min(availHeight, theight);
+            float tgwidth = Math.min(awidth, twidth), tgheight = Math.min(aheight, theight);
 
             // we do some extra fiddling here because one may want to constrain the height of a
             // button such that the text is actually cut off on the top and/or bottom because fonts
             // may have lots of whitespace above or below and you're trying to squeeze the text
             // snugly into your button
-            float ox = MathUtil.ifloor(halign.offset(twidth, availWidth));
-            float oy = MathUtil.ifloor(valign.offset(theight, availHeight));
+            float ox = MathUtil.ifloor(halign.offset(twidth, awidth));
+            float oy = MathUtil.ifloor(valign.offset(theight, aheight));
 
             // only re-render our text if something actually changed
             if (!text.equals(_renderedText) || tgwidth != _tglyph.preparedWidth() ||
@@ -275,6 +287,7 @@ public abstract class TextWidget<T extends TextWidget<T>> extends Widget<T>
     protected final Glyph _tglyph = new Glyph(layer);
     protected StyledText.Plain _renderedText;
     protected Layer _ilayer;
+    protected Icon  _renderedIcon;
 
     protected static final float MIN_FONT_SIZE = 6; // TODO: make customizable?
 }
