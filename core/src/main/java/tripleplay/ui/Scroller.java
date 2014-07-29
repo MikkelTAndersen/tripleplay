@@ -83,6 +83,13 @@ public class Scroller extends Composite<Scroller>
         }
     });
 
+    /** The buffer around a child element when updating visibility ({@link #updateVisibility()}.
+     * The default value (0x0) causes any elements whose exact bounds lie outside the clipped
+     * area to be culled. If elements are liable to have overhanging layers, the value can be set
+     * larger appropriately. */
+    public static final Style<IDimension> ELEMENT_BUFFER =
+            Style.<IDimension>newStyle(true, new Dimension(0, 0));
+
     /**
      * Interface for customizing how content is clipped and translated.
      * @see Scroller#Scroller
@@ -618,11 +625,12 @@ public class Scroller extends Composite<Scroller>
 
         // hide the layer of any child of content that isn't in bounds
         float x = hrange._cpos, y = vrange._cpos, wid = hrange._size, hei = vrange._size;
+        float bx = _elementBuffer.width(), by = _elementBuffer.height();
         for (Element<?> child : (Container<?>)content) {
             IDimension size = child.size();
             if (child.isVisible()) child.layer.setVisible(
-                child.x() < x + wid && child.x() + size.width() > x &&
-                child.y() < y + hei && child.y() + size.height() > y);
+                child.x() - bx < x + wid && child.x() + size.width() + bx > x &&
+                child.y() - by < y + hei && child.y() + size.height() + by > y);
         }
     }
 
@@ -661,7 +669,8 @@ public class Scroller extends Composite<Scroller>
 
         @Override
         public void layout (float left, float top, final float width, final float height) {
-            // set the bars first so the ScrollLayout can use it
+            // set the bars and element buffer first so the ScrollLayout can use them
+            _elementBuffer = resolveStyle(ELEMENT_BUFFER);
             updateBars(barType);
             super.layout(left, top, width, height);
             if (_bars != null) layer.add(_bars.layer().setDepth(1).setTranslation(left,  top));
@@ -737,4 +746,7 @@ public class Scroller extends Composite<Scroller>
 
     /** Scroll bars, created during layout, based on the {@link BarType}. */
     protected Bars _bars;
+
+    /** Region around elements when updating visibility. */
+    protected IDimension _elementBuffer;
 }
